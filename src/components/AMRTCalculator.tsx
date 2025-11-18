@@ -2,10 +2,27 @@ import { useState } from 'react';
 import { evaluate } from 'mathjs';
 import { ExpressionInput } from './ExpressionInput';
 import { generateSchedule, calculateSummary } from '../lib/amortization';
+import { formatNumber } from '../lib/formatters';
 import type { AMRTRow } from '../types';
 
 interface AMRTCalculatorProps {
   onCalculate: (description: string, result: string, details?: Record<string, any>) => void;
+  onDataChange?: (data: {
+    principal: number;
+    rate: number;
+    periods: number;
+    paymentTiming: 'begin' | 'end';
+    scheduleType: string;
+    gracePeriods?: number;
+    schedule: AMRTRow[];
+    summary?: {
+      fromPeriod: number;
+      toPeriod: number;
+      totalPrincipal: number;
+      totalInterest: number;
+      totalPayment: number;
+    };
+  }) => void;
 }
 
 type ScheduleType = 'shpitzer' | 'regular' | 'balloon' | 'grace';
@@ -17,7 +34,7 @@ const SCHEDULE_LABELS: Record<ScheduleType, string> = {
   grace: 'גרייס/חסד (Grace Period)',
 };
 
-export function AMRTCalculator({ onCalculate }: AMRTCalculatorProps) {
+export function AMRTCalculator({ onCalculate, onDataChange }: AMRTCalculatorProps) {
   const [principalInput, setPrincipalInput] = useState('100000');
   const [rateInput, setRateInput] = useState('5');
   const [periodsInput, setPeriodsInput] = useState('12');
@@ -69,6 +86,19 @@ export function AMRTCalculator({ onCalculate }: AMRTCalculatorProps) {
       setSchedule(generatedSchedule);
       setToPeriodInput(periods.toString());
 
+      // Store data for Excel export
+      if (onDataChange) {
+        onDataChange({
+          principal,
+          rate,
+          periods,
+          paymentTiming,
+          scheduleType: SCHEDULE_LABELS[scheduleType],
+          gracePeriods: scheduleType === 'grace' ? gracePeriods : undefined,
+          schedule: generatedSchedule,
+        });
+      }
+
       onCalculate(
         `AMRT: ${SCHEDULE_LABELS[scheduleType]}`,
         `Generated ${generatedSchedule.length} periods`,
@@ -104,6 +134,31 @@ export function AMRTCalculator({ onCalculate }: AMRTCalculatorProps) {
       const summary = calculateSummary(schedule, fromPeriod, toPeriod);
       setSummaryResult(summary);
 
+      // Update data with summary
+      if (onDataChange) {
+        const principal = evaluate(principalInput);
+        const rate = evaluate(rateInput);
+        const periods = evaluate(periodsInput);
+        const gracePeriods = scheduleType === 'grace' ? evaluate(gracePeriodsInput) : undefined;
+
+        onDataChange({
+          principal,
+          rate,
+          periods,
+          paymentTiming,
+          scheduleType: SCHEDULE_LABELS[scheduleType],
+          gracePeriods,
+          schedule,
+          summary: {
+            fromPeriod,
+            toPeriod,
+            totalPrincipal: summary.totalPrincipal,
+            totalInterest: summary.totalInterest,
+            totalPayment: summary.totalPayment,
+          },
+        });
+      }
+
       onCalculate(
         `AMRT: Summary (Periods ${fromPeriod}-${toPeriod})`,
         `Total Payment = ${summary.totalPayment.toFixed(2)}`,
@@ -120,8 +175,8 @@ export function AMRTCalculator({ onCalculate }: AMRTCalculatorProps) {
 
   return (
     <div className="max-w-6xl mx-auto">
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-2xl font-bold mb-6">Amortization Schedule</h2>
+      <div className="bg-white rounded-xl shadow-lg p-6">
+        <h2 className="text-2xl font-bold mb-6 text-gray-800">Amortization Schedule</h2>
 
         <div className="space-y-4 mb-6">
           <div className="grid grid-cols-3 gap-4">
@@ -199,14 +254,14 @@ export function AMRTCalculator({ onCalculate }: AMRTCalculatorProps) {
 
           <button
             onClick={handleCalculate}
-            className="w-full bg-blue-600 text-white py-3 px-4 rounded-md hover:bg-blue-700 font-medium"
+            className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 px-4 rounded-lg hover:from-blue-700 hover:to-blue-800 font-semibold shadow-md hover:shadow-lg transition-all duration-200"
           >
             Calculate Schedule
           </button>
 
           {error && (
-            <div className="p-4 bg-red-50 border border-red-200 rounded-md">
-              <p className="text-red-800">{error}</p>
+            <div className="p-4 bg-red-50 border-l-4 border-red-500 rounded-md shadow-sm">
+              <p className="text-red-800 font-medium">{error}</p>
             </div>
           )}
         </div>
@@ -214,43 +269,43 @@ export function AMRTCalculator({ onCalculate }: AMRTCalculatorProps) {
         {schedule && (
           <>
             <div className="mb-6">
-              <h3 className="text-lg font-semibold mb-4">Amortization Table</h3>
-              <div className="overflow-x-auto max-h-96 overflow-y-auto border border-gray-300 rounded-md">
+              <h3 className="text-lg font-semibold mb-4 text-gray-800">Amortization Table</h3>
+              <div className="overflow-x-auto max-h-96 overflow-y-auto border border-gray-200 rounded-lg shadow-sm">
                 <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50 sticky top-0">
+                  <thead className="bg-gradient-to-r from-gray-700 to-gray-800 sticky top-0 z-10 shadow-md">
                     <tr>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">
+                      <th className="px-4 py-3 text-right text-xs font-bold text-white uppercase tracking-wider">
                         תקופה
                       </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">
+                      <th className="px-4 py-3 text-right text-xs font-bold text-white uppercase tracking-wider">
                         תשלום על חשבון הקרן
                       </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">
+                      <th className="px-4 py-3 text-right text-xs font-bold text-white uppercase tracking-wider">
                         תשלום על חשבון הריבית
                       </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">
+                      <th className="px-4 py-3 text-right text-xs font-bold text-white uppercase tracking-wider">
                         סה"כ לתשלום
                       </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">
+                      <th className="px-4 py-3 text-right text-xs font-bold text-white uppercase tracking-wider">
                         יתרת קרן בלתי מסולקת
                       </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {schedule.map((row) => (
-                      <tr key={row.period} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-right">{row.period}</td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-right">
-                          {row.principalPayment.toFixed(2)}
+                    {schedule.map((row, index) => (
+                      <tr key={row.period} className={`hover:bg-blue-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-right font-medium text-gray-900">{row.period}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-right text-gray-700">
+                          {formatNumber(row.principalPayment)}
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-right">
-                          {row.interestPayment.toFixed(2)}
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-right text-gray-700">
+                          {formatNumber(row.interestPayment)}
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-right font-medium">
-                          {row.totalPayment.toFixed(2)}
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-right font-semibold text-blue-900">
+                          {formatNumber(row.totalPayment)}
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-right">
-                          {row.remainingBalance.toFixed(2)}
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-right text-gray-700">
+                          {formatNumber(row.remainingBalance)}
                         </td>
                       </tr>
                     ))}
@@ -259,8 +314,8 @@ export function AMRTCalculator({ onCalculate }: AMRTCalculatorProps) {
               </div>
             </div>
 
-            <div className="bg-gray-50 p-4 rounded-md">
-              <h3 className="text-lg font-semibold mb-4">Period Summation</h3>
+            <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-6 rounded-lg shadow-md">
+              <h3 className="text-lg font-semibold mb-4 text-gray-800">Period Summation</h3>
               <div className="grid grid-cols-3 gap-4 mb-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">From Period</label>
@@ -283,7 +338,7 @@ export function AMRTCalculator({ onCalculate }: AMRTCalculatorProps) {
                 <div className="flex items-end">
                   <button
                     onClick={handleCalculateSummary}
-                    className="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 font-medium"
+                    className="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white py-2 px-4 rounded-lg hover:from-green-700 hover:to-emerald-700 font-semibold shadow-md hover:shadow-lg transition-all duration-200"
                   >
                     Calculate Sum
                   </button>
@@ -291,23 +346,23 @@ export function AMRTCalculator({ onCalculate }: AMRTCalculatorProps) {
               </div>
 
               {summaryResult && (
-                <div className="grid grid-cols-3 gap-4 p-4 bg-white rounded-md border border-gray-200">
+                <div className="grid grid-cols-3 gap-4 p-5 bg-white rounded-lg border border-gray-200 shadow-sm">
                   <div>
-                    <p className="text-sm text-gray-600">Total Principal</p>
-                    <p className="text-xl font-bold text-gray-900">
-                      {summaryResult.totalPrincipal.toFixed(2)}
+                    <p className="text-sm text-gray-600 font-medium mb-1">Total Principal</p>
+                    <p className="text-xl font-bold text-blue-900">
+                      {formatNumber(summaryResult.totalPrincipal)}
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600">Total Interest</p>
-                    <p className="text-xl font-bold text-gray-900">
-                      {summaryResult.totalInterest.toFixed(2)}
+                    <p className="text-sm text-gray-600 font-medium mb-1">Total Interest</p>
+                    <p className="text-xl font-bold text-orange-600">
+                      {formatNumber(summaryResult.totalInterest)}
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600">Total Payment</p>
-                    <p className="text-xl font-bold text-green-800">
-                      {summaryResult.totalPayment.toFixed(2)}
+                    <p className="text-sm text-gray-600 font-medium mb-1">Total Payment</p>
+                    <p className="text-xl font-bold text-green-700">
+                      {formatNumber(summaryResult.totalPayment)}
                     </p>
                   </div>
                 </div>

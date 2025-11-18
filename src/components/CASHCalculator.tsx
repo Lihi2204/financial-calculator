@@ -3,12 +3,22 @@ import { evaluate } from 'mathjs';
 import { ExpressionInput } from './ExpressionInput';
 import { calculateNPV, calculateNPVVariable, calculateIRR, calculatePI } from '../lib/financial';
 import { solveDCFCashFlow } from '../lib/solver';
+import { formatNumber } from '../lib/formatters';
 
 interface CASHCalculatorProps {
   onCalculate: (description: string, result: string, details?: Record<string, any>) => void;
+  onDataChange?: (data: {
+    discountRateType: 'fixed' | 'variable';
+    discountRate?: number;
+    variableDiscountRates?: number[];
+    cashFlows: number[];
+    npv: number;
+    irr: number | null;
+    pi: number | null;
+  }) => void;
 }
 
-export function CASHCalculator({ onCalculate }: CASHCalculatorProps) {
+export function CASHCalculator({ onCalculate, onDataChange }: CASHCalculatorProps) {
   const [discountRateInput, setDiscountRateInput] = useState('10');
   const [discountRateType, setDiscountRateType] = useState<'fixed' | 'variable'>('fixed');
   const [variableDiscountRates, setVariableDiscountRates] = useState<string[]>(['']);
@@ -64,6 +74,33 @@ export function CASHCalculator({ onCalculate }: CASHCalculatorProps) {
       irr = calculateIRR(cashFlowValues);
 
       setResult({ npv, irr, pi });
+
+      // Store data for Excel export
+      if (onDataChange) {
+        if (discountRateType === 'variable') {
+          const rates = variableDiscountRates
+            .filter((r) => r.trim() !== '')
+            .map((r) => evaluate(r));
+          onDataChange({
+            discountRateType: 'variable',
+            variableDiscountRates: rates,
+            cashFlows: cashFlowValues,
+            npv,
+            irr,
+            pi,
+          });
+        } else {
+          const discountRate = evaluate(discountRateInput);
+          onDataChange({
+            discountRateType: 'fixed',
+            discountRate,
+            cashFlows: cashFlowValues,
+            npv,
+            irr,
+            pi,
+          });
+        }
+      }
 
       const details: Record<string, any> = {
         NPV: npv.toFixed(2),
@@ -185,8 +222,8 @@ export function CASHCalculator({ onCalculate }: CASHCalculatorProps) {
 
   return (
     <div className="max-w-4xl mx-auto">
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-2xl font-bold mb-6">Cash Flow Analysis</h2>
+      <div className="bg-white rounded-xl shadow-lg p-6">
+        <h2 className="text-2xl font-bold mb-6 text-gray-800">Cash Flow Analysis</h2>
 
         <div className="space-y-4">
           <div>
@@ -331,16 +368,16 @@ export function CASHCalculator({ onCalculate }: CASHCalculatorProps) {
               <div className="col-span-2">
                 <button
                   onClick={handleSolve}
-                  className="w-full bg-purple-600 text-white py-3 px-4 rounded-md hover:bg-purple-700 font-medium"
+                  className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-3 px-4 rounded-lg hover:from-purple-700 hover:to-indigo-700 font-semibold shadow-md hover:shadow-lg transition-all duration-200"
                 >
                   Solve for Cash Flow
                 </button>
               </div>
 
               {solverResult !== null && (
-                <div className="col-span-2 p-4 bg-purple-50 border border-purple-200 rounded-md">
-                  <p className="text-sm text-gray-600 mb-1">Cash Flow at Period {solverPeriod}:</p>
-                  <p className="text-2xl font-bold text-purple-800">{solverResult.toFixed(2)}</p>
+                <div className="col-span-2 p-5 bg-gradient-to-br from-purple-50 to-indigo-50 border-l-4 border-purple-500 rounded-lg shadow-md">
+                  <p className="text-sm text-gray-600 mb-2 font-medium">Cash Flow at Period {solverPeriod}:</p>
+                  <p className="text-3xl font-bold text-purple-800">{formatNumber(solverResult)}</p>
                 </div>
               )}
             </div>
@@ -348,35 +385,35 @@ export function CASHCalculator({ onCalculate }: CASHCalculatorProps) {
 
           <button
             onClick={handleCalculate}
-            className="w-full bg-blue-600 text-white py-3 px-4 rounded-md hover:bg-blue-700 font-medium"
+            className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 px-4 rounded-lg hover:from-blue-700 hover:to-blue-800 font-semibold shadow-md hover:shadow-lg transition-all duration-200"
           >
             Calculate
           </button>
 
           {error && (
-            <div className="p-4 bg-red-50 border border-red-200 rounded-md">
-              <p className="text-red-800">{error}</p>
+            <div className="p-4 bg-red-50 border-l-4 border-red-500 rounded-md shadow-sm">
+              <p className="text-red-800 font-medium">{error}</p>
             </div>
           )}
 
           {result !== null && !error && (
-            <div className="p-4 bg-green-50 border border-green-200 rounded-md">
-              <p className="text-sm text-gray-600 mb-2">Results:</p>
-              <div className="space-y-2">
-                <div>
-                  <span className="font-medium">NPV:</span>{' '}
-                  <span className="text-xl font-bold text-green-800">{result.npv.toFixed(2)}</span>
+            <div className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 border-l-4 border-green-500 rounded-lg shadow-md">
+              <p className="text-sm text-gray-600 mb-3 font-medium">Results:</p>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="font-semibold text-gray-700">NPV:</span>
+                  <span className="text-2xl font-bold text-green-800">{formatNumber(result.npv)}</span>
                 </div>
                 {result.irr !== null && (
-                  <div>
-                    <span className="font-medium">IRR:</span>{' '}
-                    <span className="text-xl font-bold text-green-800">{result.irr.toFixed(4)}%</span>
+                  <div className="flex justify-between items-center">
+                    <span className="font-semibold text-gray-700">IRR:</span>
+                    <span className="text-2xl font-bold text-blue-800">{formatNumber(result.irr, 4)}%</span>
                   </div>
                 )}
                 {result.pi !== null && (
-                  <div>
-                    <span className="font-medium">PI:</span>{' '}
-                    <span className="text-xl font-bold text-green-800">{result.pi.toFixed(4)}</span>
+                  <div className="flex justify-between items-center">
+                    <span className="font-semibold text-gray-700">PI:</span>
+                    <span className="text-2xl font-bold text-purple-800">{formatNumber(result.pi, 4)}</span>
                   </div>
                 )}
               </div>

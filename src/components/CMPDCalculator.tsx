@@ -9,14 +9,27 @@ import {
   solveCMPDPeriods,
 } from '../lib/solver';
 import { calculatePMT } from '../lib/financial';
+import { formatNumber } from '../lib/formatters';
 
 interface CMPDCalculatorProps {
   onCalculate: (description: string, result: string, details?: Record<string, any>) => void;
+  onDataChange?: (data: {
+    solveFor: string;
+    pv?: number;
+    fv?: number;
+    rate?: number;
+    periods?: number;
+    pmt?: number;
+    paymentTiming: 'begin' | 'end';
+    rateType: 'fixed' | 'variable';
+    variableRates?: number[];
+    result: string;
+  }) => void;
 }
 
 type SolveFor = 'fv' | 'pv' | 'rate' | 'periods' | 'pmt';
 
-export function CMPDCalculator({ onCalculate }: CMPDCalculatorProps) {
+export function CMPDCalculator({ onCalculate, onDataChange }: CMPDCalculatorProps) {
   const [solveFor, setSolveFor] = useState<SolveFor>('fv');
   const [pvInput, setPvInput] = useState('');
   const [fvInput, setFvInput] = useState('');
@@ -62,6 +75,21 @@ export function CMPDCalculator({ onCalculate }: CMPDCalculatorProps) {
 
         const fv = solveCMPDFVVariable(pv, rates, pmt, paymentTiming);
         setResult(fv.toFixed(2));
+
+        // Store data for Excel export
+        if (onDataChange) {
+          onDataChange({
+            solveFor: 'Future Value (FV)',
+            pv,
+            periods,
+            pmt,
+            paymentTiming,
+            rateType: 'variable',
+            variableRates: rates,
+            result: fv.toFixed(2),
+          });
+        }
+
         onCalculate(
           `CMPD: Solve for FV (Variable Rates)`,
           `FV = ${fv.toFixed(2)}`,
@@ -85,6 +113,20 @@ export function CMPDCalculator({ onCalculate }: CMPDCalculatorProps) {
 
           const fv = solveCMPDFV(pv, rate, periods, pmt, paymentTiming);
           setResult(fv.toFixed(2));
+
+          if (onDataChange) {
+            onDataChange({
+              solveFor: 'Future Value (FV)',
+              pv,
+              rate,
+              periods,
+              pmt,
+              paymentTiming,
+              rateType: 'fixed',
+              result: fv.toFixed(2),
+            });
+          }
+
           onCalculate(`CMPD: Solve for FV`, `FV = ${fv.toFixed(2)}`, {
             PV: pv.toFixed(2),
             Rate: `${rate}%`,
@@ -102,6 +144,20 @@ export function CMPDCalculator({ onCalculate }: CMPDCalculatorProps) {
 
           const pv = solveCMPDPV(fv, rate, periods, pmt, paymentTiming);
           setResult(pv.toFixed(2));
+
+          if (onDataChange) {
+            onDataChange({
+              solveFor: 'Present Value (PV)',
+              fv,
+              rate,
+              periods,
+              pmt,
+              paymentTiming,
+              rateType: 'fixed',
+              result: pv.toFixed(2),
+            });
+          }
+
           onCalculate(`CMPD: Solve for PV`, `PV = ${pv.toFixed(2)}`, {
             FV: fv.toFixed(2),
             Rate: `${rate}%`,
@@ -123,6 +179,20 @@ export function CMPDCalculator({ onCalculate }: CMPDCalculatorProps) {
             return;
           }
           setResult(`${rate.toFixed(4)}%`);
+
+          if (onDataChange) {
+            onDataChange({
+              solveFor: 'Rate',
+              pv,
+              fv,
+              periods,
+              pmt,
+              paymentTiming,
+              rateType: 'fixed',
+              result: `${rate.toFixed(4)}%`,
+            });
+          }
+
           onCalculate(`CMPD: Solve for Rate`, `Rate = ${rate.toFixed(4)}%`, {
             PV: pv.toFixed(2),
             FV: fv.toFixed(2),
@@ -144,6 +214,20 @@ export function CMPDCalculator({ onCalculate }: CMPDCalculatorProps) {
             return;
           }
           setResult(periods.toFixed(2));
+
+          if (onDataChange) {
+            onDataChange({
+              solveFor: 'Periods',
+              pv,
+              fv,
+              rate,
+              pmt,
+              paymentTiming,
+              rateType: 'fixed',
+              result: periods.toFixed(2),
+            });
+          }
+
           onCalculate(`CMPD: Solve for Periods`, `Periods = ${periods.toFixed(2)}`, {
             PV: pv.toFixed(2),
             FV: fv.toFixed(2),
@@ -162,6 +246,20 @@ export function CMPDCalculator({ onCalculate }: CMPDCalculatorProps) {
 
           const pmtResult = calculatePMT(pv, fv, rate, periods, paymentTiming);
           setResult(pmtResult.toFixed(2));
+
+          if (onDataChange) {
+            onDataChange({
+              solveFor: 'Payment (PMT)',
+              pv,
+              fv,
+              rate,
+              periods,
+              paymentTiming,
+              rateType: 'fixed',
+              result: pmtResult.toFixed(2),
+            });
+          }
+
           onCalculate(`CMPD: Solve for PMT`, `PMT = ${pmtResult.toFixed(2)}`, {
             PV: pv.toFixed(2),
             FV: fv.toFixed(2),
@@ -193,8 +291,8 @@ export function CMPDCalculator({ onCalculate }: CMPDCalculatorProps) {
 
   return (
     <div className="max-w-4xl mx-auto">
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-2xl font-bold mb-6">Compound Interest Calculator</h2>
+      <div className="bg-white rounded-xl shadow-lg p-6">
+        <h2 className="text-2xl font-bold mb-6 text-gray-800">Compound Interest Calculator</h2>
 
         <div className="space-y-4">
           <div>
@@ -335,21 +433,21 @@ export function CMPDCalculator({ onCalculate }: CMPDCalculatorProps) {
 
           <button
             onClick={handleCalculate}
-            className="w-full bg-blue-600 text-white py-3 px-4 rounded-md hover:bg-blue-700 font-medium"
+            className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 px-4 rounded-lg hover:from-blue-700 hover:to-blue-800 font-semibold shadow-md hover:shadow-lg transition-all duration-200"
           >
             Calculate
           </button>
 
           {error && (
-            <div className="p-4 bg-red-50 border border-red-200 rounded-md">
-              <p className="text-red-800">{error}</p>
+            <div className="p-4 bg-red-50 border-l-4 border-red-500 rounded-md shadow-sm">
+              <p className="text-red-800 font-medium">{error}</p>
             </div>
           )}
 
           {result !== null && !error && (
-            <div className="p-4 bg-green-50 border border-green-200 rounded-md">
-              <p className="text-sm text-gray-600 mb-1">Result:</p>
-              <p className="text-2xl font-bold text-green-800">{result}</p>
+            <div className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 border-l-4 border-green-500 rounded-lg shadow-md">
+              <p className="text-sm text-gray-600 mb-2 font-medium">Result:</p>
+              <p className="text-3xl font-bold text-green-800">{result}</p>
             </div>
           )}
         </div>

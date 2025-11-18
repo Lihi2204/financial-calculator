@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { evaluate } from 'mathjs';
 import { ExpressionInput } from './ExpressionInput';
+import { formatNumber } from '../lib/formatters';
 
 interface BasicCalculatorProps {
   onCalculate: (expression: string, result: number) => void;
@@ -42,8 +43,8 @@ export function BasicCalculator({ onCalculate }: BasicCalculatorProps) {
 
   return (
     <div className="max-w-2xl mx-auto">
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-2xl font-bold mb-6">Basic Calculator</h2>
+      <div className="bg-white rounded-xl shadow-lg p-6">
+        <h2 className="text-2xl font-bold mb-6 text-gray-800">Basic Calculator</h2>
 
         <div className="space-y-4">
           <div>
@@ -59,21 +60,21 @@ export function BasicCalculator({ onCalculate }: BasicCalculatorProps) {
 
           <button
             onClick={handleCalculate}
-            className="w-full bg-blue-600 text-white py-3 px-4 rounded-md hover:bg-blue-700 font-medium"
+            className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 px-4 rounded-lg hover:from-blue-700 hover:to-blue-800 font-semibold shadow-md hover:shadow-lg transition-all duration-200"
           >
             Calculate
           </button>
 
           {error && (
-            <div className="p-4 bg-red-50 border border-red-200 rounded-md">
-              <p className="text-red-800">{error}</p>
+            <div className="p-4 bg-red-50 border-l-4 border-red-500 rounded-md shadow-sm">
+              <p className="text-red-800 font-medium">{error}</p>
             </div>
           )}
 
           {result !== null && !error && (
-            <div className="p-4 bg-green-50 border border-green-200 rounded-md">
-              <p className="text-sm text-gray-600 mb-1">Result:</p>
-              <p className="text-2xl font-bold text-green-800">{result}</p>
+            <div className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 border-l-4 border-green-500 rounded-lg shadow-md">
+              <p className="text-sm text-gray-600 mb-2 font-medium">Result:</p>
+              <p className="text-3xl font-bold text-green-800">{formatNumber(result, 6)}</p>
             </div>
           )}
         </div>
